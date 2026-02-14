@@ -261,6 +261,35 @@ class StashApp {
     document.getElementById('digest-enabled').addEventListener('change', () => {
       this.updateDigestOptionsState();
     });
+
+    // Save Link Modal
+    const saveLinkModal = document.getElementById('save-link-modal');
+
+    document.getElementById('save-link-btn').addEventListener('click', () => {
+      this.showSaveLinkModal();
+    });
+
+    saveLinkModal.querySelector('.modal-overlay').addEventListener('click', () => {
+      this.hideSaveLinkModal();
+    });
+
+    saveLinkModal.querySelector('.modal-close-btn').addEventListener('click', () => {
+      this.hideSaveLinkModal();
+    });
+
+    document.getElementById('save-link-cancel-btn').addEventListener('click', () => {
+      this.hideSaveLinkModal();
+    });
+
+    document.getElementById('save-link-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.saveLink();
+    });
+
+    document.getElementById('save-link-confirm-btn').addEventListener('click', (e) => {
+      e.preventDefault(); // In case it's in a form
+      this.saveLink();
+    });
   }
 
   showAuthScreen() {
@@ -1561,6 +1590,101 @@ class StashApp {
     } finally {
       saveBtn.disabled = false;
       saveBtn.textContent = 'Save Settings';
+    }
+  }
+
+  // Save Link Logic
+  showSaveLinkModal() {
+    const modal = document.getElementById('save-link-modal');
+    modal.classList.remove('hidden');
+    document.getElementById('save-url').focus();
+    // Auto-paste if clipboard has URL (optional per browser support)
+    navigator.clipboard?.readText?.().then(text => {
+      if (text.startsWith('http')) {
+        document.getElementById('save-url').value = text;
+      }
+    }).catch(() => { });
+  }
+
+  hideSaveLinkModal() {
+    const modal = document.getElementById('save-link-modal');
+    modal.classList.add('hidden');
+    document.getElementById('save-url').value = '';
+    document.getElementById('save-link-error').classList.add('hidden');
+  }
+
+  async saveLink() {
+    const urlInput = document.getElementById('save-url');
+    const url = urlInput.value.trim();
+    const btn = document.getElementById('save-link-confirm-btn');
+    const errorEl = document.getElementById('save-link-error');
+
+    if (!url) {
+      errorEl.textContent = 'Please enter a URL';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    try {
+      new URL(url); // Validate URL
+    } catch (e) {
+      errorEl.textContent = 'Please enter a valid URL (e.g. https://...)';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+    errorEl.classList.add('hidden');
+
+    try {
+      // Use the Edge Function to fetch and parse the page
+      const { data, error } = await this.supabase.functions.invoke('save-page', {
+        body: {
+          url,
+          user_id: this.user.id,
+          source: 'web-app'
+        }
+      });
+
+      if (error) throw error;
+
+      // Success
+      this.hideSaveLinkModal();
+      this.loadSaves(); // Refresh list
+
+      console.log('Saved via Edge Function:', data);
+
+    } catch (err) {
+      console.warn('Edge Function failed, falling back to direct save:', err);
+
+      // Fallback: Direct insert if Edge Function fails (e.g. not deployed)
+      try {
+        const { data, error } = await this.supabase.from('saves').insert({
+          user_id: this.user.id,
+          url: url,
+          title: new URL(url).hostname, // Best effort title
+          site_name: new URL(url).hostname.replace('www.', ''),
+          source: 'web-app (fallback)',
+        }).select().single();
+
+        if (error) throw error;
+
+        this.hideSaveLinkModal();
+        this.loadSaves();
+        console.log('Saved via fallback:', data);
+
+        // Optional: Notify user about the fallback
+        // alert('Saved URL only (Content extraction failed)');
+
+      } catch (fallbackErr) {
+        console.error('Fallback save failed:', fallbackErr);
+        errorEl.textContent = 'Failed to save. ' + (fallbackErr.message || 'Check connection.');
+        errorEl.classList.remove('hidden');
+      }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save';
     }
   }
 }

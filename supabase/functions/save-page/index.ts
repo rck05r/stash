@@ -5,7 +5,7 @@ import { Readability } from "https://esm.sh/@mozilla/readability@0.5.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -24,24 +24,24 @@ function extractArticle(html: string, url: string) {
   const article = reader.parse();
 
   const title = article?.title ||
-               extractMeta(document, "property", "og:title") ||
-               document.querySelector("title")?.textContent ||
-               "Untitled";
+    extractMeta(document, "property", "og:title") ||
+    document.querySelector("title")?.textContent ||
+    "Untitled";
 
   const excerpt = article?.excerpt ||
-                 extractMeta(document, "name", "description") ||
-                 extractMeta(document, "property", "og:description") ||
-                 "";
+    extractMeta(document, "name", "description") ||
+    extractMeta(document, "property", "og:description") ||
+    "";
 
   const image_url = extractMeta(document, "property", "og:image");
 
   const site_name = extractMeta(document, "property", "og:site_name") ||
-                   new URL(url).hostname.replace("www.", "");
+    new URL(url).hostname.replace("www.", "");
 
   const author = article?.byline ||
-                extractMeta(document, "name", "author") ||
-                extractMeta(document, "property", "article:author") ||
-                null;
+    extractMeta(document, "name", "author") ||
+    extractMeta(document, "property", "article:author") ||
+    null;
 
   // Extract paragraphs with line breaks
   let content = "";
