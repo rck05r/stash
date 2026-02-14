@@ -18,4 +18,13 @@
       "type": "image/png"
     }
   ]
+  "share_target": {
+    "action": "/save.html",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }
